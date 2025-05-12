@@ -1,0 +1,21 @@
+{
+  "name": "scheduler-app",
+  "version": "1.0.0",
+  "description": "A Node.js app to create and manage time-based schedules through a web interface.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.9.1",
+    "express": "^4.21.2",
+    "node-schedule": "^2.1.1",
+    "node-windows": "^1.0.0-beta.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

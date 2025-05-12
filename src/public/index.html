@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Unified Schedule Manager</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <h1>Unified Schedule Manager</h1>
+
+    <form id="scheduleForm" class="schedule-form">
+      <input type="text" id="name" placeholder="Name" required />
+
+      <div
+        id="dayButtons"
+        class="day-selector"
+        aria-label="Select days"
+        required
+      >
+        <button type="button" data-day="Sunday">S</button>
+        <button type="button" data-day="Monday">M</button>
+        <button type="button" data-day="Tuesday">T</button>
+        <button type="button" data-day="Wednesday">W</button>
+        <button type="button" data-day="Thursday">T</button>
+        <button type="button" data-day="Friday">F</button>
+        <button type="button" data-day="Saturday">S</button>
+      </div>
+
+      <input type="time" id="startTime" required />
+      <input type="time" id="endTime" required />
+
+      <label class="enable-checkbox">
+        <input type="checkbox" id="enabled" checked />
+        Enable
+      </label>
+
+      <button type="submit">Add Schedule</button>
+    </form>
+
+    <table id="scheduleTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Days</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Enabled</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody></tbody>
+    </table>
+
+    <script src="script.js"></script>
+  </body>
+</html>
