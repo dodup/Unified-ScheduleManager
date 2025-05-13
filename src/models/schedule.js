@@ -7,6 +7,7 @@ db.prepare(
 CREATE TABLE IF NOT EXISTS schedules (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
+  arrayIndex INTEGER NOT NULL UNIQUE,
   days TEXT NOT NULL,
   startTime TEXT NOT NULL,
   endTime TEXT NOT NULL,
@@ -28,15 +29,32 @@ const getAllSchedules = () => {
 
 // Add a new schedule
 const addSchedule = (schedule) => {
-  const { name, days, startTime, endTime, enabled = true } = schedule; // Default enabled to true if not provided
+  const {
+    name,
+    arrayIndex,
+    days,
+    startTime,
+    endTime,
+    enabled = true,
+  } = schedule; // Default enabled to true if not provided
+
   const result = db
     .prepare(
-      "INSERT INTO schedules (name, days, startTime, endTime, enabled) VALUES (?, ?, ?, ?, ?)"
+      "INSERT INTO schedules (name, arrayIndex, days, startTime, endTime, enabled) VALUES (?, ?, ?, ?, ?, ?)" // Added the correct number of placeholders
     )
-    .run(name, JSON.stringify(days), startTime, endTime, enabled ? 1 : 0); // Store enabled as 1 or 0
+    .run(
+      name,
+      arrayIndex,
+      JSON.stringify(days),
+      startTime,
+      endTime,
+      enabled ? 1 : 0
+    ); // Passing arrayIndex and other parameters correctly
+
   return {
     id: result.lastInsertRowid,
     name,
+    arrayIndex,
     days,
     startTime,
     endTime,

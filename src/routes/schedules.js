@@ -10,8 +10,9 @@ router.get("/", (req, res) => {
 
 // Add a new schedule
 router.post("/", (req, res) => {
-  const { name, days, startTime, endTime, enabled } = req.body;
+  const { name, days, startTime, endTime, enabled, arrayIndex } = req.body;
 
+  // Check for duplicate name
   const existing = db
     .getAllSchedules()
     .find((s) => s.name.toLowerCase() === name.toLowerCase());
@@ -21,8 +22,19 @@ router.post("/", (req, res) => {
       .json({ error: "A schedule with that name already exists." });
   }
 
+  // Check for duplicate arrayIndex
+  const indexExists = db
+    .getAllSchedules()
+    .some((s) => s.arrayIndex === arrayIndex);
+  if (indexExists) {
+    return res.status(400).json({
+      error: "This Array Index is already in use. Please choose another one.",
+    });
+  }
+
   const newSchedule = db.addSchedule({
     name,
+    arrayIndex,
     days,
     startTime,
     endTime,

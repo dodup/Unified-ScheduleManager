@@ -5,7 +5,7 @@ const readline = require("readline");
 
 let schedmanVars = {};
 
-// Update all _SCHEDMAN_[x] values based on schedule state
+// Update all _SCHEDMAN_[arrayIndex] values based on schedule state
 const updateScheduleStates = (schedules, isScheduleActive) => {
   const client = net.connect("\\\\.\\pipe\\HmiRuntime", () => {
     const rl = readline.createInterface({
@@ -27,9 +27,9 @@ const updateScheduleStates = (schedules, isScheduleActive) => {
       }
     });
 
-    schedules.forEach((schedule, index) => {
+    schedules.forEach((schedule) => {
       const active = isScheduleActive(schedule);
-      const varName = `_SCHEDMAN_[${index}]`;
+      const varName = `_SCHEDMAN_[${schedule.arrayIndex}]`;
       const value = active ? 1 : 0;
 
       schedmanVars[varName] = !!value;
@@ -51,9 +51,7 @@ const updateScheduleStates = (schedules, isScheduleActive) => {
     }
   });
 
-  client.on("end", () => {
-    // Optional: log or cleanup
-  });
+  client.on("end", () => {});
 };
 
 const getSchedmanVars = () => schedmanVars;

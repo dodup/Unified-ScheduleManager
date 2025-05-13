@@ -5,6 +5,28 @@ const enabledCheckbox = document.getElementById("enabled");
 
 const selectedDays = new Set();
 
+let confirmCallback = null;
+
+// Popups / modals
+const modal = document.getElementById("confirmModal");
+const confirmYes = document.getElementById("confirmYes");
+const confirmNo = document.getElementById("confirmNo");
+const errorModal = document.getElementById("errorModal");
+const errorMessage = document.getElementById("errorMessage");
+const errorOk = document.getElementById("errorOk");
+
+// Listen for localStorage updates (cross-tab + iframe safe)
+window.addEventListener("storage", (event) => {
+  if (event.key === "schedules_update" && event.newValue) {
+    loadSchedules();
+  }
+});
+
+// Function to trigger an update
+function broadcastUpdate() {
+  localStorage.setItem("schedules_update", Date.now().toString());
+}
+
 // Day buttons logic for selection and toggle
 dayButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -37,10 +59,10 @@ const loadSchedules = async () => {
 
   tableBody.innerHTML = "";
   schedules.forEach((schedule) => {
-    // Ensure schedule.days is an array
     if (Array.isArray(schedule.days)) {
       const row = `<tr>
         <td>${schedule.name}</td>
+        <td>${schedule.arrayIndex}</td>
         <td>${schedule.days
           .map((d) => `<span class="day-bubble">${dayInitials[d]}</span>`)
           .join(" ")}</td>
@@ -48,7 +70,8 @@ const loadSchedules = async () => {
         <td>${schedule.endTime}</td>
         <td>${schedule.enabled ? "✅" : "❌"}</td>
         <td>${schedule.isActive ? "🟢 Active" : "⚪ Inactive"}</td>
-        <td>
+        <td class="button-column">
+        <div class="action-buttons">
           <button class="${
             schedule.enabled ? "enable-btn" : "disable-btn"
           }" onclick="toggleEnableSchedule(${schedule.id}, ${
@@ -56,10 +79,11 @@ const loadSchedules = async () => {
       })">
             ${schedule.enabled ? "Disable" : "Enable"}
           </button>
-          <button class="delete-btn" onclick="deleteSchedule(${
-            schedule.id
-          })">Delete</button>
-        </td>
+          <button class="delete-btn" onclick="deleteSchedule(${schedule.id})">
+            Delete
+          </button>
+        </div>
+      </td>
       </tr>`;
       tableBody.innerHTML += row;
     } else {
@@ -82,16 +106,55 @@ const toggleEnableSchedule = async (id, currentStatus) => {
   loadSchedules();
 };
 
-// Add a new schedule
+// Add a new schedule (add schedule button)
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  if (selectedDays.size === 0) {
-    alert("Please select at least one day.");
+  const nameInput = document.getElementById("name");
+  const name = nameInput.value.trim();
+
+  if (!name) {
+    showError("Please enter a name for the schedule.");
     return;
   }
 
-  const name = document.getElementById("name").value.trim();
+  const arrayIndexInput = document.getElementById("arrayIndex");
+  const arrayIndex = parseInt(arrayIndexInput.value, 10);
+
+  if (isNaN(arrayIndex) || arrayIndex < 0 || arrayIndex > 1999) {
+    showError("Array Index must be a number between 0 and 1999.");
+    return;
+  }
+
+  if (selectedDays.size === 0) {
+    showError("Please select at least one day.");
+    return;
+  }
+
+  const startTimeInput = document.getElementById("startTime");
+  const endTimeInput = document.getElementById("endTime");
+  const startTime = startTimeInput.value;
+  const endTime = endTimeInput.value;
+
+  if (!startTime || !endTime) {
+    showError("Please provide both start and end times.");
+    return;
+  }
+
+  // Convert time strings to comparable values (in minutes)
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+
+  const startTotalMinutes = startHour * 60 + startMinute;
+  const endTotalMinutes = endHour * 60 + endMinute;
+
+  if (startTotalMinutes >= endTotalMinutes) {
+    showError("Start time must be earlier than end time.");
+    return;
+  }
+
+  const enabled = enabledCheckbox.checked;
+
   const dayNameToIndex = {
     Sunday: 0,
     Monday: 1,
@@ -101,46 +164,82 @@ form.addEventListener("submit", async (e) => {
     Friday: 5,
     Saturday: 6,
   };
+
   const days = Array.from(selectedDays).map((day) => dayNameToIndex[day]);
-  const startTime = document.getElementById("startTime").value;
-  const endTime = document.getElementById("endTime").value;
-  const enabled = enabledCheckbox.checked;
 
-  // Check for duplicate name
-  const res = await fetch("/api/schedules");
-  const existingSchedules = await res.json();
+  try {
+    const res = await fetch("/api/schedules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        days,
+        startTime,
+        endTime,
+        enabled,
+        arrayIndex,
+      }),
+    });
 
-  const nameExists = existingSchedules.some(
-    (s) => s.name.toLowerCase() === name.toLowerCase()
-  );
-  if (nameExists) {
-    alert(
-      "A schedule with this name already exists. Please use a different name."
-    );
-    return;
+    if (!res.ok) {
+      const errData = await res.json();
+      const message = errData?.error || "Failed to add schedule.";
+      showError(message);
+      return;
+    }
+
+    // Success – clear and reload
+    form.reset();
+    selectedDays.clear();
+    dayButtons.forEach((btn) => btn.classList.remove("selected"));
+    enabledCheckbox.checked = true;
+    loadSchedules();
+    broadcastUpdate();
+  } catch (err) {
+    showError("An error occurred while adding the schedule.");
+    console.error(err);
   }
+});
 
-  await fetch("/api/schedules", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, days, startTime, endTime, enabled }),
-  });
+// Confirmation popup
+function showConfirmation(message, callback) {
+  document.getElementById("confirmMessage").textContent = message;
+  modal.classList.remove("hidden");
+  confirmCallback = callback;
+}
 
-  // Reset form and state
-  form.reset();
-  selectedDays.clear();
-  dayButtons.forEach((btn) => btn.classList.remove("selected"));
-  enabledCheckbox.checked = true;
-  loadSchedules();
+confirmYes.addEventListener("click", () => {
+  if (confirmCallback) confirmCallback(true);
+  modal.classList.add("hidden");
+});
+
+confirmNo.addEventListener("click", () => {
+  if (confirmCallback) confirmCallback(false);
+  modal.classList.add("hidden");
 });
 
 // Delete a schedule
-const deleteSchedule = async (id) => {
-  if (confirm("Are you sure you want to delete this schedule?")) {
-    await fetch(`/api/schedules/${id}`, { method: "DELETE" });
-    loadSchedules();
-  }
+const deleteSchedule = (id) => {
+  showConfirmation(
+    "Are you sure you want to delete this schedule?",
+    async (confirmed) => {
+      if (confirmed) {
+        await fetch(`/api/schedules/${id}`, { method: "DELETE" });
+        loadSchedules();
+        broadcastUpdate();
+      }
+    }
+  );
 };
+
+function showError(message) {
+  errorMessage.textContent = message;
+  errorModal.classList.remove("hidden");
+}
+
+errorOk.addEventListener("click", () => {
+  errorModal.classList.add("hidden");
+});
 
 // Initial load of schedules when the page is ready
 loadSchedules();
